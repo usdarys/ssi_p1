@@ -1,8 +1,12 @@
-exports.a = 1;
-exports.b = 2;
-exports.c = 3;
-exports.liczbaWykonanProgramu = 1;
-exports.liczbaPopulacji = 3;
-exports.liczbaOsobnikowPopulacji = 10;
-exports.prawdopodobienstwoKrzyzowania = 0.8;
-exports.prawdopodobienstwoMutacji = 0.1;
+module.exports = {
+    a: 1,
+    b: 2,
+    c: 3,
+    liczbaWykonanProgramu: 40,
+    liczbaPopulacji: 3,
+    liczbaOsobnikowPopulacji: 49,
+    prawdopodobienstwoKrzyzowania: 0.8,
+    prawdopodobienstwoMutacji: 0.1,
+    resultFile: 'results.txt',
+    limitPrzetwarzanychOsobnikow: 150
+};

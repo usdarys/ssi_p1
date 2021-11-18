@@ -1,21 +1,6 @@
-// Pojedyncza pętla (wykonanie głownego programu) powinno zwrocic: 
-// - najlepszyOsobnik osobnik z ostatniej populacji
-// - wartosc funkcji dla najlepszego osobnika
-// 
-// Glowna petla to:
-// 1. Wygenerowanie startowej populacji osobnikow?
-// 2. From 0 to liczbaPopulacji:
-//    - krzyzowanie osobnikow w populacji - wynik to populacja tymczasowa po krzyzowaniu
-//    - mutacja osobików w populacji - wynik to populacja tymczasowa po mutacji
-//    - selekcja osobnikow do nastepnej populacji - wynik to populacja potomna
-// 
-// Pytania / niejasności:
-// - osobnik to liczba z przedzialu <0,255> - starowi osobnicy to liczby losowe z dopuszczalnego przedzialu?
-// - czy liczbaPopulacji ma uwzględniać populację początkową czy chodzi o otrzymane przez program populacje?
-
-const params = require("./params");
 const { exit } = require("process");
-const { appendFile } = require("fs/promises");
+const { appendFile, writeFile } = require("fs/promises");
+const params = require("./params");
 
 const a = params.a;
 const b = params.b;
@@ -25,16 +10,21 @@ const liczbaPopulacji = params.liczbaPopulacji;
 const liczbaOsobnikowPopulacji = params.liczbaOsobnikowPopulacji;
 const prawdopodobienstwoKrzyzowania = params.prawdopodobienstwoKrzyzowania;
 const prawdopodobienstwoMutacji = params.prawdopodobienstwoMutacji;
+const resultFile = params.resultFile;
 
-if (liczbaPopulacji * liczbaOsobnikowPopulacji >= 150) {
-    console.error("\x1b[31m", "Error: Liczba przetwarzanych osobnikow jest wieksza niz 150");
+if (liczbaPopulacji * liczbaOsobnikowPopulacji >= params.limitPrzetwarzanychOsobnikow) {
+    console.error("\x1b[31m", `Error: Liczba przetwarzanych osobnikow (liczba populacji * liczba osobnikow w populacji) jest wieksza niz ${params.limitPrzetwarzanychOsobnikow}`);
     exit(0);
 }
 
-main();
+(async () => {
+    let populacja = [], f, najlepszyOsobnik;
 
-async function main() {
-    let populacja = [], f, fMax, najlepszyOsobnik;
+    try {
+        await writeFile(resultFile, '');
+    } catch (err) {
+        console.error("\x1b[31m", err);
+    }
 
     for (let i = 0; i < liczbaWykonanProgramu; i++) {
         populacja = wygenerujPopulacjeStartowa(liczbaOsobnikowPopulacji, true);
@@ -45,21 +35,74 @@ async function main() {
             populacja = wybierzOsobnikow(populacja);
         }
 
-        // wybierz najlepszego osobnika z ostatniej populacji
-        najlepszyOsobnik = populacja[0];
-        fMax = funkcjaKwadratowa(a, b, c, najlepszyOsobnik);
-        for (let j = 1; j < populacja.length; j++) {
-            f = funkcjaKwadratowa(a, b, c, populacja[j]);
-            if (f > fMax) {
-                najlepszyOsobnik = populacja[j];
-                fMax = f;
-            }
-        }
+        najlepszyOsobnik = maxOsobnik(populacja);
+        f = funkcjaKwadratowa(a, b, c, najlepszyOsobnik);
 
-        // zapisz wynik do pliku
-        //const result = `${fMax} ${najlepszyOsobnik}`;
-        //await appendFile('results.txt', result);
+        try {
+            await appendFile(resultFile, `${f} ${najlepszyOsobnik}${(i < (liczbaWykonanProgramu - 1)) ? '\n' : ''}`);
+        } catch (err) {
+            console.error("\x1b[31m", err);
+        }
     }
+})();
+
+/**
+ * 
+ * @param {number[]} populacja 
+ * @returns {number} Osobnik, dla ktorego funkcja ma najwieksza wartosc
+ */
+function maxOsobnik(populacja) {
+    let f, fMax, osobnik;
+    osobnik = populacja[0];
+    fMax = funkcjaKwadratowa(a, b, c, osobnik);
+    for (let j = 1; j < populacja.length; j++) {
+        f = funkcjaKwadratowa(a, b, c, populacja[j]);
+        if (f > fMax) {
+            osobnik = populacja[j];
+            fMax = f;
+        }
+    }
+    return osobnik;
+}
+
+/**
+ * 
+ * @param {number[]} populacja 
+ * @returns {number} Osobnik, dla ktorego funkcja ma najmniejsza wartosc
+ */
+ function minOsobnik(populacja) {
+    let f, fMin, osobnik;
+    osobnik = populacja[0];
+    fMin = funkcjaKwadratowa(a, b, c, osobnik);
+    for (let j = 1; j < populacja.length; j++) {
+        f = funkcjaKwadratowa(a, b, c, populacja[j]);
+        if (f < fMin) {
+            osobnik = populacja[j];
+            fMin = f;
+        }
+    }
+    return osobnik;
+}
+
+/**
+ * 
+ * @param {number} liczbaOsobnikowPopulacji 
+ * @param {boolean} zwracanie czy losowac osobnikow ze zwracaniem
+ * @returns {number[]}
+ */
+ function wygenerujPopulacjeStartowa(liczbaOsobnikowPopulacji, zwracanie) {
+    let populacja = [];
+
+    if (zwracanie) {
+        for (let i = 0; i < liczbaOsobnikowPopulacji; i++) {
+            populacja.push(getRandomInt(0, 256));
+        }
+    } else {
+        populacja = shuffle([...Array(256).keys()]);
+        populacja = populacja.slice(0, liczbaOsobnikowPopulacji);
+    }
+
+    return populacja;
 }
 
 /**
@@ -67,63 +110,7 @@ async function main() {
  * @param {number[]} populacja 
  * @returns {number[]}
  */
-function mutujPopulacje(populacja) {
-    populacja = konwertujPopulacjeNaKodowanieBinarne(populacja);
-    populacja.forEach(osobnik => {
-        osobnik.forEach((gen, i) => {
-            if (Math.random() <= prawdopodobienstwoMutacji) {
-                osobnik[i] = (gen === '1') ? '0' : '1';
-            }
-        });
-    });
-    return konwertujPopulacjeNaKodowanieDziesietne(populacja);
-}
-
-/**
- * TODO: dodać stałą na zabezpieczenie przed ujemna funkcja
- * @param {number[]} populacja 
- * @returns {number[]}
- */
-function wybierzOsobnikow(populacja) {
-    let populacjaPoSelekcji = [], los;
-
-    let sumarycznaWartoscFunkcji = 0;
-    populacja.forEach(x => {
-        sumarycznaWartoscFunkcji += funkcjaKwadratowa(a, b, c, x);
-    });
-
-    let prawdopodobienstwaWybraniaOsobnikow = [];
-    populacja.forEach(x => {
-        prawdopodobienstwaWybraniaOsobnikow.push(funkcjaKwadratowa(a, b, c, x) / sumarycznaWartoscFunkcji);
-    });
-
-    let przedzialy = [];
-    let granicaPrzedzialu = 0;
-    prawdopodobienstwaWybraniaOsobnikow.forEach((p, i) => {
-        przedzialy[i] = {};
-        przedzialy[i].poczatek = granicaPrzedzialu;
-        granicaPrzedzialu += p;
-        przedzialy[i].koniec = granicaPrzedzialu;
-    });
-
-    for (let i = 0; i < populacja.length; i++) {
-        los = Math.random();
-        for (let j = 0; j < przedzialy.length; j++) {
-            if (los >= przedzialy[j].poczatek && los < przedzialy[j].koniec) {
-                populacjaPoSelekcji.push(populacja[j]);
-            }
-        }
-    }
-
-    return populacjaPoSelekcji;
-}
-
-/**
- * 
- * @param {number[]} populacja 
- * @returns {number[]}
- */
-function krzyzujPopulacje(populacja) {
+ function krzyzujPopulacje(populacja) {
     let skrzyzowanaPopulacja = [], para = [];
 
     populacja = shuffle(populacja);
@@ -164,23 +151,64 @@ function krzyzujOsobniki(para) {
 
 /**
  * 
- * @param {number} liczbaOsobnikowPopulacji 
- * @param {boolean} zwracanie czy losowac osobnikow ze zwracaniem
+ * @param {number[]} populacja 
  * @returns {number[]}
  */
-function wygenerujPopulacjeStartowa(liczbaOsobnikowPopulacji, zwracanie) {
-    let populacja = [];
+function mutujPopulacje(populacja) {
+    populacja = konwertujPopulacjeNaKodowanieBinarne(populacja);
+    populacja.forEach(osobnik => {
+        osobnik.forEach((gen, i) => {
+            if (Math.random() <= prawdopodobienstwoMutacji) {
+                osobnik[i] = (gen === '1') ? '0' : '1';
+            }
+        });
+    });
+    return konwertujPopulacjeNaKodowanieDziesietne(populacja);
+}
 
-    if (zwracanie) {
-        for (let i = 0; i < liczbaOsobnikowPopulacji; i++) {
-            populacja.push(getRandomInt(0, 256));
-        }
-    } else {
-        populacja = shuffle([...Array(256).keys()]);
-        populacja = populacja.slice(0, liczbaOsobnikowPopulacji);
+/**
+ * 
+ * @param {number[]} populacja 
+ * @returns {number[]}
+ */
+function wybierzOsobnikow(populacja) {
+    let populacjaPoSelekcji = [], los;
+
+    const st = Math.abs(funkcjaKwadratowa(a, b, c, minOsobnik(populacja)));
+
+    let funkcja = (a, b, c, x) => {
+        return funkcjaKwadratowa(a, b, c, x) + st;
     }
 
-    return populacja;
+    let sumarycznaWartoscFunkcji = 0;
+    populacja.forEach(x => {
+        sumarycznaWartoscFunkcji += funkcja(a, b, c, x);
+    });
+
+    let prawdopodobienstwaWybraniaOsobnikow = [];
+    populacja.forEach(x => {
+        prawdopodobienstwaWybraniaOsobnikow.push(funkcja(a, b, c, x) / sumarycznaWartoscFunkcji);
+    });
+
+    let przedzialy = [];
+    let granicaPrzedzialu = 0;
+    prawdopodobienstwaWybraniaOsobnikow.forEach((p, i) => {
+        przedzialy[i] = {};
+        przedzialy[i].poczatek = granicaPrzedzialu;
+        granicaPrzedzialu += p;
+        przedzialy[i].koniec = granicaPrzedzialu;
+    });
+
+    for (let i = 0; i < populacja.length; i++) {
+        los = Math.random();
+        for (let j = 0; j < przedzialy.length; j++) {
+            if (los >= przedzialy[j].poczatek && los < przedzialy[j].koniec) {
+                populacjaPoSelekcji.push(populacja[j]);
+            }
+        }
+    }
+
+    return populacjaPoSelekcji;
 }
 
 /**
