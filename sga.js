@@ -1,5 +1,5 @@
 // Pojedyncza pętla (wykonanie głownego programu) powinno zwrocic: 
-// - najlepszy osobnik z ostatniej populacji
+// - najlepszyOsobnik osobnik z ostatniej populacji
 // - wartosc funkcji dla najlepszego osobnika
 // 
 // Glowna petla to:
@@ -31,19 +31,33 @@ if (liczbaPopulacji * liczbaOsobnikowPopulacji >= 150) {
     exit(0);
 }
 
-//main();
+main();
 
 async function main() {
-    for (let i = 0; i < liczbaWykonanProgramu; i++) {
-        //wygeneruj poppulacje poczatkowa
-        const populacjaStartowa = wygenerujPopulacjeStartowa(liczbaOsobnikowPopulacji);
+    let populacja = [], f, fMax, najlepszyOsobnik;
 
-        // wygeneruj docelowa populacje koncowa (From 0 to liczbaPopulacji:)
-        let populacja = populacjaStartowa;
-        populacja = krzyzujPopulacje(populacja, prawdopodobienstwoKrzyzowania);
-        populacja = mutujPopulacje(populacja, prawdopodobienstwoMutacji);
-        // zapisz najlepszego osobnika do pliku
-        //const result = `${i}`;
+    for (let i = 0; i < liczbaWykonanProgramu; i++) {
+        populacja = wygenerujPopulacjeStartowa(liczbaOsobnikowPopulacji, true);
+
+        for (let j = 0; j < liczbaPopulacji; j++) {
+            populacja = krzyzujPopulacje(populacja);
+            populacja = mutujPopulacje(populacja);
+            populacja = wybierzOsobnikow(populacja);
+        }
+
+        // wybierz najlepszego osobnika z ostatniej populacji
+        najlepszyOsobnik = populacja[0];
+        fMax = funkcjaKwadratowa(a, b, c, najlepszyOsobnik);
+        for (let j = 1; j < populacja.length; j++) {
+            f = funkcjaKwadratowa(a, b, c, populacja[j]);
+            if (f > fMax) {
+                najlepszyOsobnik = populacja[j];
+                fMax = f;
+            }
+        }
+
+        // zapisz wynik do pliku
+        //const result = `${fMax} ${najlepszyOsobnik}`;
         //await appendFile('results.txt', result);
     }
 }
@@ -51,10 +65,9 @@ async function main() {
 /**
  * 
  * @param {number[]} populacja 
- * @param {number} prawdopodobienstwoMutacji 
  * @returns {number[]}
  */
-function mutujPopulacje(populacja, prawdopodobienstwoMutacji) {
+function mutujPopulacje(populacja) {
     populacja = konwertujPopulacjeNaKodowanieBinarne(populacja);
     populacja.forEach(osobnik => {
         osobnik.forEach((gen, i) => {
@@ -67,32 +80,50 @@ function mutujPopulacje(populacja, prawdopodobienstwoMutacji) {
 }
 
 /**
- * 
+ * TODO: dodać stałą na zabezpieczenie przed ujemna funkcja
  * @param {number[]} populacja 
  * @returns {number[]}
  */
 function wybierzOsobnikow(populacja) {
+    let populacjaPoSelekcji = [], los;
+
     let sumarycznaWartoscFunkcji = 0;
     populacja.forEach(x => {
-        sumarycznaWartoscFunkcji += (a * x * x) + (b * x) + c;
+        sumarycznaWartoscFunkcji += funkcjaKwadratowa(a, b, c, x);
     });
 
-    const prawdopodobienstwaWybraniaOsobnikow = [];
+    let prawdopodobienstwaWybraniaOsobnikow = [];
     populacja.forEach(x => {
-        prawdopodobienstwaWybraniaOsobnikow.push(((a * x * x) + (b * x) + c) / sumarycznaWartoscFunkcji);
+        prawdopodobienstwaWybraniaOsobnikow.push(funkcjaKwadratowa(a, b, c, x) / sumarycznaWartoscFunkcji);
     });
 
-    
-    return;
+    let przedzialy = [];
+    let granicaPrzedzialu = 0;
+    prawdopodobienstwaWybraniaOsobnikow.forEach((p, i) => {
+        przedzialy[i] = {};
+        przedzialy[i].poczatek = granicaPrzedzialu;
+        granicaPrzedzialu += p;
+        przedzialy[i].koniec = granicaPrzedzialu;
+    });
+
+    for (let i = 0; i < populacja.length; i++) {
+        los = Math.random();
+        for (let j = 0; j < przedzialy.length; j++) {
+            if (los >= przedzialy[j].poczatek && los < przedzialy[j].koniec) {
+                populacjaPoSelekcji.push(populacja[j]);
+            }
+        }
+    }
+
+    return populacjaPoSelekcji;
 }
 
 /**
  * 
  * @param {number[]} populacja 
- * @param {number} prawdopodobienstwoKrzyzowania 
  * @returns {number[]}
  */
-function krzyzujPopulacje(populacja, prawdopodobienstwoKrzyzowania) {
+function krzyzujPopulacje(populacja) {
     let skrzyzowanaPopulacja = [], para = [];
 
     populacja = shuffle(populacja);
@@ -180,6 +211,18 @@ function konwertujPopulacjeNaKodowanieBinarne(populacja) {
  */
 function konwertujPopulacjeNaKodowanieDziesietne(populacja) {
     return populacja.map(osobnik => parseInt(osobnik.join(''), 2));
+}
+
+/**
+ * 
+ * @param {number} a 
+ * @param {number} b 
+ * @param {number} c 
+ * @param {number} x 
+ * @returns {number}
+ */
+function funkcjaKwadratowa(a, b, c, x) {
+    return (a * x * x) + (b * x) + c;
 }
 
 /**
