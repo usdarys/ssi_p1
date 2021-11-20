@@ -1,7 +1,7 @@
 module.exports = {
     a: -1,
-    b: 2,
-    c: 3,
+    b: 80,
+    c: -12,
     liczbaWykonanProgramu: 40,
     liczbaPopulacji: 3,
     liczbaOsobnikowPopulacji: 49,
