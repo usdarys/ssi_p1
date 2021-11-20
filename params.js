@@ -7,6 +7,6 @@ module.exports = {
     liczbaOsobnikowPopulacji: 49,
     prawdopodobienstwoKrzyzowania: 0.8,
     prawdopodobienstwoMutacji: 0.1,
-    resultFile: 'results.txt',
+    resultFile: 'rys-dariusz.txt',
     limitPrzetwarzanychOsobnikow: 150
 };
